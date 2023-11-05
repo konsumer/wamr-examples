@@ -30,6 +30,9 @@ typedef struct Color {
   u8 a;
 } Color;
 
+Color test_color = (Color) {.r=200, .g=100, .b=100, .a=100};
+wasm_module_inst_t module_inst;
+
 // these are used in wasm to print args it received
 
 static void debug_color_wasmimport(wasm_exec_env_t exec_env, Color* c) {
@@ -48,20 +51,28 @@ static void debug_dimensions_pointer_wasmimport(wasm_exec_env_t exec_env, Dimens
   printf("Dimensions*: (%d, %d)\n", d->width, d->height);
 }
 
+static void echo_wasmimport(wasm_exec_env_t exec_env, char* str) {
+  printf("%s\n", str);
+}
+
+static void return_color_wasmimport(wasm_exec_env_t exec_env, void* retPointer) {
+  memcpy(retPointer,  &test_color, sizeof(Color));
+}
+
+static uint32_t return_color_pointer_wasmimport(wasm_exec_env_t exec_env) {
+  return wasm_runtime_module_dup_data(module_inst, (const char*) &test_color, sizeof(Color));
+}
+
 // even though on the other side, half of these are values, I use pointers for all, since they seem to be coerced that way
 static NativeSymbol native_symbols[] = {
   { "debug_color", debug_color_wasmimport, "(*)" },
   { "debug_color_pointer", debug_color_pointer_wasmimport, "(*)" },
   { "debug_dimensions", debug_dimensions_wasmimport, "(*)" },
   { "debug_dimensions_pointer", debug_dimensions_pointer_wasmimport, "(*)" },
+  { "echo", echo_wasmimport, "($)" },
+  { "return_color", return_color_wasmimport, "(*)" },
+  { "return_color_pointer", return_color_pointer_wasmimport, "()i" }
 };
-
-// this makes iwasm --native-lib option work
-uint32_t get_native_lib(char** p_module_name, NativeSymbol** p_native_symbols) {
-  *p_module_name = "null0";
-  *p_native_symbols = native_symbols;
-  return sizeof(native_symbols) / sizeof(NativeSymbol);
-}
 
 unsigned char* load_file(char* filename, unsigned long* byteSize) {
   FILE *f = fopen(filename, "rb");
@@ -101,7 +112,6 @@ int main(int argc, char *argv[]) {
   }
 
   // setup env & load wasm
-  wasm_module_inst_t module_inst;
   wasm_module_t module = wasm_runtime_load(wasmBytes, wasmSize, error_buf, sizeof(error_buf));
   module_inst = wasm_runtime_instantiate(module, stack_size, heap_size, error_buf, sizeof(error_buf));
   wasm_exec_env_t exec_env = wasm_runtime_create_exec_env(module_inst, stack_size);
@@ -173,14 +183,29 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+  // TEST: verify struct-args (WASM(arg)->host) and (host(return)->WASM)
+
   // call main
   wasm_application_execute_main(module_inst, 0, NULL);
 
-  // call wasm functions
-  // bool wasm_runtime_call_wasm(wasm_exec_env_t exec_env, wasm_function_inst_t function, uint32_t argc, uint32_t argv[]);
+  uint32_t test_args[1];
 
+  // TEST: verify struct-args (host(arg)->WASM)
+  // allocate & copy color param into WASM-space, then call function
+  test_args[0] = wasm_runtime_module_dup_data(module_inst, (const char*) &test_color, sizeof(Color));
+  if (!wasm_runtime_call_wasm(exec_env, cart_param_color_by_value, 1, test_args) ) {
+    printf("%s\n", wasm_runtime_get_exception(module_inst));
+  }
+  wasm_runtime_module_free(module_inst, test_args[0]);
+
+  // TEST: verify struct-pointer-args (host(arg)->WASM)
+  // allocate & copy color param into WASM-space, then call function
+  test_args[0] = wasm_runtime_module_dup_data(module_inst, (const char*) &test_color, sizeof(Color));
+  if (!wasm_runtime_call_wasm(exec_env, cart_param_color_by_pointer, 1, test_args) ) {
+    printf("%s\n", wasm_runtime_get_exception(module_inst));
+  }
+  wasm_runtime_module_free(module_inst, test_args[0]);
   
-
 
   return 0;
 }
