@@ -179,14 +179,7 @@ int main(int argc, char *argv[]) {
   // call wasm functions
   // bool wasm_runtime_call_wasm(wasm_exec_env_t exec_env, wasm_function_inst_t function, uint32_t argc, uint32_t argv[]);
 
-  Color c = (Color) {};
-
-  // here I put the ret-val into the arg
-  if (!wasm_runtime_call_wasm(exec_env, cart_ret_color_by_value, 1, (uint32_t *) &c)) {
-    printf("%s\n", wasm_runtime_get_exception(module_inst));
-  }
-  // This is wrong: (0, 0, 0, 0) should be (230, 41, 55, 255)
-  printf("cart_ret_color_by_value: Color(%d, %d, %d, %d)\n", c.r, c.g, c.b, c.a);
+  
 
 
   return 0;

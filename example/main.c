@@ -100,5 +100,14 @@ void param_dimensions_by_value(Dimensions d) {
 }
 
 int main () {
+  // check sending a struct arg to parent
+  debug_color(RED);
+  debug_dimensions(dim_example);
+
+  // check sending a struct pointer to parent
+  debug_color_pointer(&RED);
+  debug_dimensions_pointer(&dim_example);
+
+  
   return 0;
 }
