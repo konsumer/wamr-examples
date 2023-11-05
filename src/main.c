@@ -31,7 +31,6 @@ typedef struct Color {
 } Color;
 
 // these are used in wasm to print args it received
-// even though on the other side, half of these are values, I use pointers for all
 
 static void debug_color_wasmimport(wasm_exec_env_t exec_env, Color* c) {
   printf("Color: (%d, %d, %d, %d)\n", c->r, c->g, c->b, c->a);
@@ -49,6 +48,7 @@ static void debug_dimensions_pointer_wasmimport(wasm_exec_env_t exec_env, Dimens
   printf("Dimensions*: (%d, %d)\n", d->width, d->height);
 }
 
+// even though on the other side, half of these are values, I use pointers for all, since they seem to be coerced that way
 static NativeSymbol native_symbols[] = {
   { "debug_color", debug_color_wasmimport, "(*)" },
   { "debug_color_pointer", debug_color_pointer_wasmimport, "(*)" },
@@ -100,14 +100,94 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  // setup env
-  wasm_exec_env_t exec_env;
+  // setup env & load wasm
   wasm_module_inst_t module_inst;
   wasm_module_t module = wasm_runtime_load(wasmBytes, wasmSize, error_buf, sizeof(error_buf));
   module_inst = wasm_runtime_instantiate(module, stack_size, heap_size, error_buf, sizeof(error_buf));
-  exec_env = wasm_runtime_create_exec_env(module_inst, stack_size);
-
+  wasm_exec_env_t exec_env = wasm_runtime_create_exec_env(module_inst, stack_size);
   free(wasmBytes);
+
+  // find exports
+
+  // ret_color_by_value(i32) -> nil
+  wasm_function_inst_t cart_ret_color_by_value = wasm_runtime_lookup_function(module_inst, "ret_color_by_value", "()*");
+
+  // ret_color_by_pointer() -> i32
+  wasm_function_inst_t cart_ret_color_by_pointer = wasm_runtime_lookup_function(module_inst, "ret_color_by_pointer", "()*");
+
+  // param_color_by_pointer(i32) -> nil
+  wasm_function_inst_t cart_param_color_by_pointer = wasm_runtime_lookup_function(module_inst, "param_color_by_pointer", "(*)");
+
+  // param_color_by_value(i32) -> nil
+  wasm_function_inst_t cart_param_color_by_value = wasm_runtime_lookup_function(module_inst, "param_color_by_value", "(*)");
+
+  // ret_dimensions_by_value(i32) -> nil
+  wasm_function_inst_t cart_ret_dimensions_by_value = wasm_runtime_lookup_function(module_inst, "ret_dimensions_by_value", "()*");
+
+  // ret_dimensions_by_pointer() -> i32
+  wasm_function_inst_t cart_ret_dimensions_by_pointer = wasm_runtime_lookup_function(module_inst, "ret_dimensions_by_pointer", "()*");
+
+  // param_dimensions_by_pointer(i32) -> nil
+  wasm_function_inst_t cart_param_dimensions_by_pointer = wasm_runtime_lookup_function(module_inst, "param_dimensions_by_pointer", "(*)");
+
+  // param_dimensions_by_value(i32) -> nil
+  wasm_function_inst_t cart_param_dimensions_by_value = wasm_runtime_lookup_function(module_inst, "param_dimensions_by_value", "(*)");
+
+  if (!cart_ret_color_by_value) {
+    printf("no cart_ret_color_by_value\n");
+    return 1;
+  }
+
+  if (!cart_ret_color_by_pointer) {
+    printf("no cart_ret_color_by_pointer\n");
+    return 1;
+  }
+
+  if (!cart_param_color_by_pointer) {
+    printf("no cart_param_color_by_pointer\n");
+    return 1;
+  }
+
+  if (!cart_param_color_by_value) {
+    printf("no cart_param_color_by_value\n");
+    return 1;
+  }
+
+  if (!cart_ret_dimensions_by_value) {
+    printf("no cart_ret_dimensions_by_value\n");
+    return 1;
+  }
+
+  if (!cart_ret_dimensions_by_pointer) {
+    printf("no cart_ret_dimensions_by_pointer\n");
+    return 1;
+  }
+
+  if (!cart_param_dimensions_by_pointer) {
+    printf("no cart_param_dimensions_by_pointer\n");
+    return 1;
+  }
+
+  if (!cart_param_dimensions_by_value) {
+    printf("no cart_param_dimensions_by_value\n");
+    return 1;
+  }
+
+  // call main
+  wasm_application_execute_main(module_inst, 0, NULL);
+
+  // call wasm functions
+  // bool wasm_runtime_call_wasm(wasm_exec_env_t exec_env, wasm_function_inst_t function, uint32_t argc, uint32_t argv[]);
+
+  Color c = (Color) {};
+
+  // here I put the ret-val into the arg
+  if (!wasm_runtime_call_wasm(exec_env, cart_ret_color_by_value, 1, (uint32_t *) &c)) {
+    printf("%s\n", wasm_runtime_get_exception(module_inst));
+  }
+  // This is wrong: (0, 0, 0, 0) should be (230, 41, 55, 255)
+  printf("cart_ret_color_by_value: Color(%d, %d, %d, %d)\n", c.r, c.g, c.b, c.a);
+
 
   return 0;
 }

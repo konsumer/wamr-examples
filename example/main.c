@@ -51,24 +51,6 @@ void debug_dimensions_pointer(Dimensions* v);
 
 // these functions are exported to host
 
-// malloc(i32) -> i32
-NULL0_EXPORT("malloc")
-void* _null0_malloc(size_t size) {
-  return malloc(size);
-}
-
-// alloca(i32) -> i32
-NULL0_EXPORT("alloca")
-void* _null0_alloca(size_t size) {
-  return __builtin_alloca(size);
-}
-
-// free(i32) -> nil
-NULL0_EXPORT("free")
-void _null0_free(void* ptr) {
-  free(ptr);
-}
-
 // ret_color_by_value(i32) -> nil
 NULL0_EXPORT("ret_color_by_value")
 Color ret_color_by_value() {
